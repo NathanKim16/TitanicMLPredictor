@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 
-# import tensorflow as tf
+import tensorflow as tf
 
 df = pd.read_csv("data/trimmedTitanic.csv")
 x = df[["Pclass", "Sex", "Age"]]
@@ -32,11 +32,37 @@ preprocessor = ColumnTransformer(transformers=[
 xTrainProcessed = preprocessor.fit_transform(XTrain)
 xValProcessed = preprocessor.transform(XVal)
 
-# Model
-rf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
-rf.fit(xTrainProcessed, yTrain)
+def build_model(input_dim):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(input_dim,)),
+        tf.keras.layers.Dense(32, activation='relu'),
+        tf.keras.layers.Dense(16, activation='relu'),
+        tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Dense(8, activation='relu'),
+        tf.keras.layers.Dense(1, activation='sigmoid')
+    ])
 
-# Evaluations
-preds = rf.predict(xValProcessed)
-print("Accuracy:", accuracy_score(yVal, preds))
-print(classification_report(yVal, preds))
+    model.compile(
+        optimizer="adam",
+        loss="binary_crossentropy",
+        metrics=["accuracy"],
+    )
+
+    return model
+
+model = build_model(xTrainProcessed.shape[1])
+
+earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+history = model.fit(
+    xTrainProcessed, yTrain,
+    validation_data=(xValProcessed, yVal),
+    epochs=100,
+    batch_size=32,
+    callbacks=[earlyStop],
+    verbose=1
+)
+
+# Evaluate the model
+loss, acc = model.evaluate(xValProcessed, yVal, verbose=0)
+print("TensorFlow accuracy:", acc)
